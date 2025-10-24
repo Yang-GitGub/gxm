@@ -3,134 +3,288 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>21</title>
+    <title>抓offer</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
+
         body {
-            background-color: #000;
+            height: 100vh;
+            background-color: #f0f8ff;
+            font-family: 'Comic Sans MS', 'Marker Felt', sans-serif;
             overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px; /* 增加内边距，避免边缘内容被截断 */
+            position: relative;
         }
-        canvas {
-            display: block;
-            max-width: 90vw; /* 限制画布最大宽度为视口的90% */
-            max-height: 60vh; /* 限制画布最大高度为视口的60%，给文字留足够空间 */
-        }
-        .happy-text {
-            color: #fff;
+
+        .title {
+            color: #ff6347;
             font-size: 24px;
-            font-weight: bold;
+            text-align: center;
             margin-top: 30px;
-            text-shadow: 0 0 8px #ff69b4, 0 0 12px #ff1493;
-            letter-spacing: 2px;
-            text-align: center; /* 文字居中 */
-            max-width: 90vw; /* 文字最大宽度适配 */
+            animation: shake 2s infinite;
+        }
+
+        .click-count {
+            color: #4682b4;
+            font-size: 20px;
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        #funny-btn {
+            position: absolute;
+            padding: 15px 30px;
+            background-color: #32cd32;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transition: all 0.1s;
+            user-select: none;
+        }
+
+        #funny-btn:hover {
+            transform: scale(1.05);
+        }
+
+        /* 表情包弹窗 */
+        .meme-modal {
+            position: fixed;
+            width: 150px;
+            height: 150px;
+            border-radius: 10px;
+            overflow: hidden;
+            z-index: 100;
+            pointer-events: none;
+            animation: float 2s ease-in-out forwards;
+            opacity: 0;
+        }
+
+        .meme-modal img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* 随机文字泡泡 */
+        .text-bubble {
+            position: absolute;
+            background-color: rgba(255,255,255,0.9);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 16px;
+            color: #ff4500;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            animation: float-up 3s ease-out forwards;
+            opacity: 0;
+            z-index: 50;
+        }
+
+        /* 动画效果 */
+        @keyframes shake {
+            0%, 100% { transform: rotate(-3deg); }
+            50% { transform: rotate(3deg); }
+        }
+
+        @keyframes float {
+            0% { transform: scale(0) rotate(0deg); opacity: 1; }
+            50% { transform: scale(1.2) rotate(10deg); opacity: 1; }
+            100% { transform: scale(0) rotate(30deg); opacity: 0; }
+        }
+
+        @keyframes float-up {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-100px); opacity: 0; }
+        }
+
+        /* 适配手机 */
+        @media (max-width: 480px) {
+            .title {
+                font-size: 20px;
+                padding: 0 10px;
+            }
+            #funny-btn {
+                font-size: 16px;
+                padding: 12px 24px;
+            }
+            .meme-modal {
+                width: 120px;
+                height: 120px;
+            }
         }
     </style>
 </head>
 <body>
-    <canvas id="heartCanvas"></canvas>
-    <div class="happy-text">gxm happy every day</div>
+    <div class="title">秋招之gxm抓offer😈</div>
+    <div class="click-count">已点击: <span id="count">0</span> 次</div>
+    <button id="funny-btn">我是offer~来抓我呀~</button>
+
+    <!-- 音效元素 -->
+    <audio id="laugh-sound" preload="auto">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-silly-laugh-1854.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="click-sound" preload="auto">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-quick-jump-arcade-game-239.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="surprise-sound" preload="auto">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-surprise-alert-notification-953.mp3" type="audio/mpeg">
+    </audio>
 
     <script>
-        const canvas = document.getElementById('heartCanvas');
-        const ctx = canvas.getContext('2d');
+        const btn = document.getElementById('funny-btn');
+        const countEl = document.getElementById('count');
+        let clickCount = 0;
+        let speedLevel = 1; // 逃跑速度等级，点击次数越多越快
 
-        function resizeCanvas() {
-            // 基于视口和最大限制计算画布尺寸
-            const maxWidth = Math.min(window.innerWidth * 0.9, 600);
-            const maxHeight = Math.min(window.innerHeight * 0.6, 400);
-            canvas.width = maxWidth;
-            canvas.height = maxHeight;
-        }
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
+        // 表情包列表
+        const memeImages = [
+            'https://picsum.photos/seed/meme1/200/200',
+            'https://picsum.photos/seed/meme2/200/200',
+            'https://picsum.photos/seed/meme3/200/200',
+            'https://picsum.photos/seed/meme4/200/200',
+            'https://picsum.photos/seed/meme5/200/200',
+            'https://picsum.photos/seed/meme6/200/200',
+            'https://picsum.photos/seed/meme7/200/200'
+        ];
 
-        class Particle {
-            constructor(x, y, color) {
-                this.x = x;
-                this.y = y;
-                this.radius = Math.random() * 2 + 1;
-                this.color = color;
-                this.velX = (Math.random() - 0.5) * 1.5;
-                this.velY = (Math.random() - 0.5) * 1.5;
-                this.life = Math.random() * 60 + 40;
-                this.alpha = 1;
+        // 调皮文字列表
+        const funnyTexts = [
+            "宗申:就这？",
+            "海德世:太慢啦~",
+            "央企:哈哈哈",
+            "国企:抓不到我",
+            "教培offer:加油哦！",
+            "自动化类offer:你很执着嘛",
+            "机械类offer:累了吗？",
+            "非洲offer:你要来？",
+            "春风动力：能抓到我吗",
+            "继峰:我闪！"
+        ];
+
+        // 按钮初始位置
+        resetBtnPosition();
+
+        // 鼠标/触摸靠近时逃跑
+        btn.addEventListener('mouseover', runAway);
+        btn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            runAway();
+        });
+
+        // 点击按钮时的效果
+        btn.addEventListener('click', () => {
+            clickCount++;
+            countEl.textContent = clickCount;
+            
+            // 每5次点击加速一次
+            if (clickCount % 5 === 0) {
+                speedLevel += 0.5;
+                showTextBubble("越来越快啦！");
+                document.body.style.backgroundColor = getRandomLightColor();
             }
-
-            update() {
-                this.x += this.velX;
-                this.y += this.velY;
-                this.life--;
-                this.alpha = this.life / 100;
+            
+            // 随机播放音效
+            const sounds = [
+                document.getElementById('laugh-sound'),
+                document.getElementById('click-sound'),
+                document.getElementById('surprise-sound')
+            ];
+            const randomSound = sounds[Math.floor(Math.random() * sounds.length)];
+            randomSound.volume = 0.3;
+            randomSound.play().catch(err => {});
+            
+            // 随机生成表情包
+            if (Math.random() > 0.3) { // 70%概率出表情包
+                createMeme();
             }
-
-            draw() {
-                ctx.save();
-                ctx.globalAlpha = this.alpha;
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                ctx.fillStyle = this.color;
-                ctx.fill();
-                ctx.restore();
+            
+            // 随机改变按钮文字
+            if (Math.random() > 0.5) {
+                const randomText = funnyTexts[Math.floor(Math.random() * funnyTexts.length)];
+                btn.textContent = randomText;
             }
+            
+            // 点击后立刻再跑一次
+            runAway();
+        });
+
+        // 按钮逃跑逻辑
+        function runAway() {
+            const maxX = window.innerWidth - btn.offsetWidth - 20;
+            const maxY = window.innerHeight - btn.offsetHeight - 20;
+            
+            // 随机新位置，速度越快范围越大
+            const randomX = Math.floor(Math.random() * maxX);
+            const randomY = Math.floor(Math.random() * maxY);
+            
+            // 随点击次数增加，按钮颜色变化
+            btn.style.backgroundColor = getRandomColor();
+            btn.style.left = `${randomX}px`;
+            btn.style.top = `${randomY}px`;
         }
 
-        const particles = [];
-        const maxParticles = 800;
-
-        function heartCurve(t) {
-            const x = 16 * Math.sin(t) ** 3;
-            const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
-            return {
-                x: canvas.width / 2 + x * 8, // 调整缩放，适配更小画布
-                y: canvas.height / 2 - y * 8
-            };
+        // 重置按钮初始位置
+        function resetBtnPosition() {
+            const initX = (window.innerWidth - btn.offsetWidth) / 2;
+            const initY = (window.innerHeight - btn.offsetHeight) / 2;
+            btn.style.left = `${initX}px`;
+            btn.style.top = `${initY}px`;
         }
 
-        function createParticles() {
-            for (let i = 0; i < 5; i++) {
-                if (particles.length < maxParticles) {
-                    const t = Math.random() * Math.PI * 2;
-                    const point = heartCurve(t);
-                    const offsetX = (Math.random() - 0.5) * 15; // 缩小偏移，适配小画布
-                    const offsetY = (Math.random() - 0.5) * 15;
-                    const color = `hsl(${Math.random() * 30 + 330}, 100%, 65%)`;
-                    particles.push(new Particle(
-                        point.x + offsetX, 
-                        point.y + offsetY, 
-                        color
-                    ));
-                }
-            }
+        // 生成随机颜色
+        function getRandomColor() {
+            const colors = ['#ff6347', '#4682b4', '#32cd32', '#ffd700', '#9370db', '#ff69b4'];
+            return colors[Math.floor(Math.random() * colors.length)];
         }
 
-        function animate() {
-            requestAnimationFrame(animate);
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            createParticles();
-
-            for (let i = particles.length - 1; i >= 0; i--) {
-                particles[i].update();
-                particles[i].draw();
-                if (particles[i].life <= 0) {
-                    particles.splice(i, 1);
-                }
-            }
+        // 生成随机浅色背景
+        function getRandomLightColor() {
+            const colors = ['#f0f8ff', '#fff0f5', '#f5f5dc', '#f0fff0', '#e6e6fa'];
+            return colors[Math.floor(Math.random() * colors.length)];
         }
 
-        animate();
+        // 创建表情包弹窗
+        function createMeme() {
+            const meme = document.createElement('div');
+            meme.className = 'meme-modal';
+            
+            const randomX = Math.random() * (window.innerWidth - 150);
+            const randomY = Math.random() * (window.innerHeight - 150);
+            const randomImg = memeImages[Math.floor(Math.random() * memeImages.length)];
+            
+            meme.style.left = `${randomX}px`;
+            meme.style.top = `${randomY}px`;
+            meme.innerHTML = `<img src="${randomImg}" alt="搞笑表情包">`;
+            
+            document.body.appendChild(meme);
+            
+            setTimeout(() => meme.remove(), 2000);
+        }
+
+        // 显示文字泡泡
+        function showTextBubble(text) {
+            const bubble = document.createElement('div');
+            bubble.className = 'text-bubble';
+            bubble.textContent = text;
+            
+            // 从按钮位置出发
+            const btnRect = btn.getBoundingClientRect();
+            bubble.style.left = `${btnRect.left + btnRect.width/2}px`;
+            bubble.style.top = `${btnRect.top}px`;
+            
+            document.body.appendChild(bubble);
+            
+            setTimeout(() => bubble.remove(), 3000);
+        }
+
+        // 窗口大小变化时重新定位按钮
+        window.addEventListener('resize', resetBtnPosition);
     </script>
 </body>
 </html>
